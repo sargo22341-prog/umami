@@ -1,0 +1,12 @@
+node_modules
+dist
+.codex
+.gitea
+.env
+.env.local
+*.local
+.git
+.gitignore
+.DS_Store
+*.md
+!README.md
