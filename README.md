@@ -51,10 +51,77 @@ npm run dev
 
 ## Docker
 
-Un exemple de lancement avec Docker Compose est disponible dans `docker-compose.yml`.
+Images Docker publiees :
+
+- `ghcr.io/sargo22341-prog/umami:latest`
+- `ghcr.io/sargo22341-prog/umami-recipes-search-proxy:latest`
+
+Exemple minimal :
+
+```yaml
+services:
+  umami:
+    image: ghcr.io/sargo22341-prog/umami:latest
+    container_name: umami
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      VITE_MEALIE_URL: "https://mealie.example.com"
+    depends_on:
+      - recipes-search-proxy
+
+  recipes-search-proxy:
+    image: ghcr.io/sargo22341-prog/umami-recipes-search-proxy:latest
+    container_name: umami-recipes-search-proxy
+    restart: unless-stopped
+```
+
+Exemple complet :
+
+```yaml
+services:
+  umami:
+    image: ghcr.io/sargo22341-prog/umami:latest
+    container_name: umami
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      VITE_MEALIE_URL: "https://mealie.example.com"
+      VITE_THEME: "system"
+      # VITE_ACCENT_COLORS: "rgba(223, 89, 27, 1)"
+    depends_on:
+      recipes-search-proxy:
+        condition: service_started
+    networks:
+      - umami
+
+  recipes-search-proxy:
+    image: ghcr.io/sargo22341-prog/umami-recipes-search-proxy:latest
+    container_name: umami-recipes-search-proxy
+    restart: unless-stopped
+    expose:
+      - "3001"
+    networks:
+      - umami
+
+networks:
+  umami:
+    name: umami
+```
+
+Fichiers inclus dans le depot :
+
+- `docker-compose.example.yml`
+- `docker-compose.full.yml`
 
 Pour demarrer :
 
 ```bash
-docker compose up -d
+docker compose -f docker-compose.example.yml up -d
 ```
+
+Puis ouvrez `http://localhost:8080`.
+
+Pensez a remplacer `VITE_MEALIE_URL` par l'URL de votre instance Mealie.

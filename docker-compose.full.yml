@@ -1,0 +1,30 @@
+services:
+  umami:
+    image: ghcr.io/sargo22341-prog/umami:latest
+    container_name: umami
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      VITE_MEALIE_URL: "https://mealie.example.com"
+      VITE_THEME: "system"
+      # VITE_ACCENT_COLORS: "rgba(223, 89, 27, 1)"
+    depends_on:
+      recipes-search-proxy:
+        condition: service_started
+    networks:
+      - umami
+
+  recipes-search-proxy:
+    image: ghcr.io/sargo22341-prog/umami-recipes-search-proxy:latest
+    container_name: umami-recipes-search-proxy
+    restart: unless-stopped
+    expose:
+      - "3001"
+    networks:
+      - umami
+
+networks:
+  umami:
+    name: umami
+
