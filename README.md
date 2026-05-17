@@ -1,4 +1,8 @@
-# Umami
+<p align="center">
+  <img src="./public/logo_umami.png" width="120" alt="Umami logo" />
+</p>
+
+<h1 align="center">Umami</h1>
 
 Umami est une interface web locale pour piloter et enrichir une instance Mealie. Le projet part de [bonap](https://github.com/AymericLeFeyer/bonap), puis ajoute une couche plus orientee cuisine quotidienne : exploration de recettes, imports aides, planning, courses, favoris, statistiques, mode cuisine et outils de nettoyage.
 
