@@ -1,0 +1,88 @@
+name: Build and Push Docker Image
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'server/**'
+      - 'public/**'
+      - 'index.html'
+      - 'vite.config.*'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'Dockerfile'
+      - 'nginx.conf'
+      - 'docker-entrypoint.sh'
+      - 'docker-compose.example.yml'
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    env:
+      DOCKER_API_VERSION: "1.43"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITEA_TOKEN }}
+
+      # 🧼 Nom d'image propre (sans GitHub)
+      - name: Set lowercase image name
+        run: |
+          REPO_NAME=$(basename "$(git remote get-url origin)" .git)
+          echo "IMAGE_NAME=$(echo "$REPO_NAME" | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      # 🔢 Bump version automatique
+      - name: Bump patch version
+        id: version
+        run: |
+          npm version patch --no-git-tag-version
+          echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
+      # 💾 Commit + push version bump (Gitea)
+      - name: Commit and push version bump
+        if: github.event_name != 'pull_request'
+        run: |
+          git config user.name "gitea-actions[bot]"
+          git config user.email "gitea-actions[bot]@users.noreply.gitea.com"
+          git add package.json package-lock.json
+          git commit -m "chore(release): v${{ steps.version.outputs.version }} [skip ci]" || echo "No changes to commit"
+          git push
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker
+          driver-opts: network=host
+
+      - name: Login to local registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.DOCKER_REGISTRY  }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      # 🐳 Build + Push image
+      - name: Build and push frontend Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          target: runner
+          tags: |
+            ${{ secrets.DOCKER_REGISTRY  }}/${{ env.IMAGE_NAME }}:latest
+            ${{ secrets.DOCKER_REGISTRY  }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+
+      - name: Build and push Recipes search proxy Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          target: recipes-search-proxy
+          tags: |
+            ${{ secrets.DOCKER_REGISTRY  }}/${{ env.IMAGE_NAME }}-recipes-search-proxy:latest
+            ${{ secrets.DOCKER_REGISTRY  }}/${{ env.IMAGE_NAME }}-recipes-search-proxy:${{ steps.version.outputs.version }}
