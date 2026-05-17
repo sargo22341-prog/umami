@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react"
-import { X, ChevronLeft, ChevronRight } from "lucide-react"
+import type { Dispatch, SetStateAction } from "react"
+import { X, ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from "lucide-react"
 import { Button } from "components/ui"
 import { MarkdownContent } from "components/common/MarkdownContent.tsx"
 import type { MealieRecipeAsset, MealieRecipeIngredientOutput, MealieRecipeStep } from "@/shared/types/mealie/Recipes.ts"
@@ -14,6 +15,7 @@ import {
 interface CookingModeProps {
   recipeId: string
   recipeName: string
+  recipeServings?: number
   ingredients: MealieRecipeIngredientOutput[]
   instructions: MealieRecipeStep[]
   assets?: MealieRecipeAsset[] | null
@@ -54,6 +56,7 @@ function findCurrentChapter(
 export function CookingMode({
   recipeId,
   recipeName,
+  recipeServings,
   ingredients,
   instructions,
   assets,
@@ -63,6 +66,8 @@ export function CookingMode({
   const [videoData, setVideoData] = useState<RecipeVideoData | null>(null)
   const wakeLockRef = useRef<WakeLockSentinel | null>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
+  const baseServings = getServingsBase(recipeServings)
+  const [cookingServings, setCookingServings] = useState(baseServings)
 
   const totalSteps = instructions.length
   const isIngredients = step === -1
@@ -286,11 +291,18 @@ export function CookingMode({
             <div className="min-h-0 flex-1 rounded-[var(--radius-2xl)] border border-border bg-card">
               <div className="h-full overflow-y-auto px-5 py-5 md:px-6 md:py-6">
                 {isIngredients ? (
-                  <IngredientsScreen ingredients={ingredients} />
+                  <IngredientsScreen
+                    ingredients={ingredients}
+                    baseServings={baseServings}
+                    cookingServings={cookingServings}
+                    onChangeCookingServings={setCookingServings}
+                  />
                 ) : (
                   <InstructionScreen
                     instruction={currentInstruction!}
                     ingredients={ingredients}
+                    baseServings={baseServings}
+                    cookingServings={cookingServings}
                   />
                 )}
               </div>
@@ -325,19 +337,60 @@ export function CookingMode({
   )
 }
 
-function IngredientsScreen({ ingredients }: { ingredients: MealieRecipeIngredientOutput[] }) {
+function IngredientsScreen({
+  ingredients,
+  baseServings,
+  cookingServings,
+  onChangeCookingServings,
+}: {
+  ingredients: MealieRecipeIngredientOutput[]
+  baseServings: number
+  cookingServings: number
+  onChangeCookingServings: Dispatch<SetStateAction<number>>
+}) {
   const filtered = ingredients.filter(
     (ingredient) => ingredient.food?.name || ingredient.note || ingredient.quantity != null,
   )
+  const portionsLabel = cookingServings > 1 ? "portions" : "portion"
 
   return (
     <div className="space-y-6">
-      <h2 className="font-heading text-2xl font-bold tracking-tight md:text-3xl">Ingredients</h2>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="font-heading text-2xl font-bold tracking-tight md:text-3xl">Ingredients</h2>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span>
+            Pour <span className="font-medium text-foreground">{formatScaledQuantity(cookingServings)}</span> {portionsLabel}
+          </span>
+          <div className="flex rounded-full border border-border bg-background p-0.5">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Diminuer les portions"
+              onClick={() => onChangeCookingServings((value) => Math.max(1, value - 1))}
+              disabled={cookingServings <= 1}
+              className="h-7 w-7 rounded-full"
+            >
+              <ChevronDown className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Augmenter les portions"
+              onClick={() => onChangeCookingServings((value) => value + 1)}
+              className="h-7 w-7 rounded-full"
+            >
+              <ChevronUp className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
       <ul className="space-y-4">
         {filtered.map((ingredient, index) => (
           <li key={index} className="flex items-baseline gap-2 text-lg md:text-xl">
             <span className="mt-2.5 h-2 w-2 shrink-0 rounded-full bg-primary" />
-            <span>{formatIngredientParts(ingredient)}</span>
+            <span>{formatIngredientParts(ingredient, baseServings, cookingServings)}</span>
             {ingredient.note && <span className="text-base text-muted-foreground"> - {ingredient.note}</span>}
           </li>
         ))}
@@ -349,9 +402,13 @@ function IngredientsScreen({ ingredients }: { ingredients: MealieRecipeIngredien
 function InstructionScreen({
   instruction,
   ingredients,
+  baseServings,
+  cookingServings,
 }: {
   instruction: MealieRecipeStep
   ingredients: MealieRecipeIngredientOutput[]
+  baseServings: number
+  cookingServings: number
 }) {
   const linkedIngredients = (instruction.ingredientReferences ?? [])
     .map((reference) =>
@@ -373,7 +430,7 @@ function InstructionScreen({
                 key={index}
                 className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary"
               >
-                {formatLinkedIngredientLabel(ingredient)}
+                {formatLinkedIngredientLabel(ingredient, baseServings, cookingServings)}
               </span>
             ))}
           </div>
@@ -402,18 +459,52 @@ function formatChapterLabel(chapter: RecipeVideoChapter, step: number) {
   return `Chapitre ${chapter.stepIndex + 1}`
 }
 
-function formatLinkedIngredientLabel(ingredient: MealieRecipeIngredientOutput | undefined) {
+function formatLinkedIngredientLabel(
+  ingredient: MealieRecipeIngredientOutput | undefined,
+  baseServings: number,
+  cookingServings: number,
+) {
   if (!ingredient) return ""
 
-  return formatIngredientParts(ingredient)
+  return formatIngredientParts(ingredient, baseServings, cookingServings)
 }
 
-function formatIngredientParts(ingredient: MealieRecipeIngredientOutput) {
+function formatIngredientParts(
+  ingredient: MealieRecipeIngredientOutput,
+  baseServings: number,
+  cookingServings: number,
+) {
+  const scaledQuantity = scaleIngredientQuantity(ingredient.quantity ?? undefined, baseServings, cookingServings)
+
   return [
-    ingredient.quantity != null ? String(ingredient.quantity) : "",
+    scaledQuantity != null ? formatScaledQuantity(scaledQuantity) : "",
     ingredient.unit?.name ?? "",
     ingredient.food?.name ?? "",
   ]
     .filter((part) => part.trim().length > 0)
     .join(" ")
+}
+
+function getServingsBase(recipeServings: number | undefined) {
+  return Number.isFinite(recipeServings) && recipeServings && recipeServings > 0
+    ? recipeServings
+    : 1
+}
+
+function scaleIngredientQuantity(
+  quantity: number | undefined,
+  baseServings: number,
+  cookingServings: number,
+) {
+  if (quantity == null || Number.isNaN(quantity)) return undefined
+
+  return (quantity / baseServings) * Math.max(1, cookingServings)
+}
+
+function formatScaledQuantity(quantity: number) {
+  if (Number.isInteger(quantity)) return String(quantity)
+
+  return new Intl.NumberFormat("fr-FR", {
+    maximumFractionDigits: 2,
+  }).format(quantity)
 }

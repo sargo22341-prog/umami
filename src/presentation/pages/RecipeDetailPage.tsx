@@ -240,6 +240,7 @@ function RecipeDetailContent({ recipe, setRecipe, onRecipeDeleted }: RecipeDetai
         <CookingMode
           recipeId={recipe.id}
           recipeName={recipe.name}
+          recipeServings={recipe.recipeServings}
           ingredients={recipe.recipeIngredient ?? []}
           instructions={recipe.recipeInstructions ?? []}
           assets={recipe.assets}
