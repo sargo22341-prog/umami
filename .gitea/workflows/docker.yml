@@ -20,6 +20,7 @@ on:
 
 jobs:
   build-and-push:
+    if: ${{ !startsWith(github.event.head_commit.message, 'chore(release):') }}
     runs-on: ubuntu-latest
 
     env:
@@ -51,7 +52,7 @@ jobs:
           git config user.name "gitea-actions[bot]"
           git config user.email "gitea-actions[bot]@users.noreply.gitea.com"
           git add package.json package-lock.json
-          git commit -m "chore(release): v${{ steps.version.outputs.version }} [skip ci]" || echo "No changes to commit"
+          git commit -m "chore(release): v${{ steps.version.outputs.version }}" || echo "No changes to commit"
           git push
           echo "RELEASE_SHA=$(git rev-parse HEAD)" >> $GITHUB_ENV
 
