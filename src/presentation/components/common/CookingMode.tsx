@@ -289,7 +289,7 @@ export function CookingMode({
             )}
 
             <div className="min-h-0 flex-1 rounded-[var(--radius-2xl)] border border-border bg-card">
-              <div className="h-full overflow-y-auto px-5 py-5 md:px-6 md:py-6">
+              <div className="h-full overflow-y-auto px-4 py-5 md:px-6 md:py-6">
                 {isIngredients ? (
                   <IngredientsScreen
                     ingredients={ingredients}
@@ -355,10 +355,10 @@ function IngredientsScreen({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="font-heading text-2xl font-bold tracking-tight md:text-3xl">Ingredients</h2>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="min-w-0 font-heading text-xl font-bold tracking-tight sm:text-2xl md:text-3xl">Ingredients</h2>
+        <div className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground sm:gap-2 sm:text-sm">
+          <span className="whitespace-nowrap">
             Pour <span className="font-medium text-foreground">{formatScaledQuantity(cookingServings)}</span> {portionsLabel}
           </span>
           <div className="flex rounded-full border border-border bg-background p-0.5">
@@ -369,9 +369,9 @@ function IngredientsScreen({
               aria-label="Diminuer les portions"
               onClick={() => onChangeCookingServings((value) => Math.max(1, value - 1))}
               disabled={cookingServings <= 1}
-              className="h-7 w-7 rounded-full"
+              className="h-6 w-6 rounded-full sm:h-7 sm:w-7"
             >
-              <ChevronDown className="h-4 w-4" />
+              <ChevronDown className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </Button>
             <Button
               type="button"
@@ -379,9 +379,9 @@ function IngredientsScreen({
               size="icon"
               aria-label="Augmenter les portions"
               onClick={() => onChangeCookingServings((value) => value + 1)}
-              className="h-7 w-7 rounded-full"
+              className="h-6 w-6 rounded-full sm:h-7 sm:w-7"
             >
-              <ChevronUp className="h-4 w-4" />
+              <ChevronUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </Button>
           </div>
         </div>
