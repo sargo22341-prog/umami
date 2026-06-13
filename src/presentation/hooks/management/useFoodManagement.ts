@@ -131,7 +131,7 @@ export function useFoodManagement(
         householdsWithIngredientFood: payload.available ? [householdSlug] : [],
       })
       if (created) {
-        setAllFoods((prev) => sortFoodsByName([...prev, created]))
+        setAllFoods((prev) => sortFoodsByName([created, ...prev.filter((entry) => entry.id !== created.id)]))
       } else {
         const latest = await getPaginatedFoodsUseCase.execute(1, 1, undefined, "created_at", "desc")
         const latestItem = latest.items[0]

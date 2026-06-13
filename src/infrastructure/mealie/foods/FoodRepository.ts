@@ -6,10 +6,60 @@ import type {
   MealiePaginatedFoods,
   MealieRawPaginatedFoods,
 } from "@/shared/types/mealie/food.ts"
+import { MealieApiError } from "@/shared/types/errors.ts"
 import { mealieApiClient } from "../api/index.ts"
 
 type FoodOrderDirection = "asc" | "desc"
 type FoodOrderBy = "name"
+
+function normalizeFoodName(name: string): string {
+  return name.trim().toLocaleLowerCase("fr")
+}
+
+function isDuplicateFoodError(error: unknown): boolean {
+  if (!(error instanceof MealieApiError)) return false
+
+  const message = error.message.toLocaleLowerCase("en")
+  return (
+    error.statusCode === 409 ||
+    message.includes("unique constraint failed") ||
+    message.includes("ingredient_foods.name") ||
+    message.includes("already exists")
+  )
+}
+
+function mergeFoodInput(
+  existing: MealieIngredientFoodOutput,
+  input: MealieCreateIngredientFood,
+): MealieCreateIngredientFood {
+  const households = new Set(existing.householdsWithIngredientFood ?? [])
+  input.householdsWithIngredientFood?.forEach((household) => households.add(household))
+
+  return {
+    name: input.name?.trim() || existing.name,
+    pluralName: input.pluralName !== undefined ? input.pluralName : (existing.pluralName ?? null),
+    description: input.description !== undefined ? input.description : (existing.description ?? ""),
+    extras: input.extras !== undefined ? input.extras : (existing.extras ?? null),
+    labelId: input.labelId !== undefined ? input.labelId : (existing.labelId ?? null),
+    aliases: input.aliases !== undefined ? input.aliases : (existing.aliases ?? []),
+    householdsWithIngredientFood: [...households],
+  }
+}
+
+function shouldUpdateExistingFood(
+  existing: MealieIngredientFoodOutput,
+  input: MealieCreateIngredientFood,
+): boolean {
+  return (
+    input.pluralName !== undefined ||
+    input.description !== undefined ||
+    input.extras !== undefined ||
+    input.labelId !== undefined ||
+    input.aliases !== undefined ||
+    input.householdsWithIngredientFood !== undefined ||
+    existing.name !== input.name.trim()
+  )
+}
 
 export class FoodRepository implements IFoodRepository {
   
@@ -77,7 +127,30 @@ export class FoodRepository implements IFoodRepository {
   }
 
   async createOne(input: MealieCreateIngredientFood): Promise<MealieIngredientFoodOutput> {
-    return mealieApiClient.post<MealieIngredientFoodOutput>("/api/foods", input)
+    try {
+      return await mealieApiClient.post<MealieIngredientFoodOutput>("/api/foods", input)
+    } catch (error) {
+      if (!isDuplicateFoodError(error)) {
+        throw error
+      }
+
+      const existing = await this.findByExactName(input.name)
+      if (!existing) {
+        throw error
+      }
+
+      if (!shouldUpdateExistingFood(existing, input)) {
+        return existing
+      }
+
+      return this.update(existing.id, mergeFoodInput(existing, input))
+    }
+  }
+
+  private async findByExactName(name: string): Promise<MealieIngredientFoodOutput | null> {
+    const normalizedName = normalizeFoodName(name)
+    const searchResults = await this.getPage(1, 50, name)
+    return searchResults.items.find((food) => normalizeFoodName(food.name) === normalizedName) ?? null
   }
 
   async update(id: string, input: MealieCreateIngredientFood): Promise<MealieIngredientFoodOutput> {
